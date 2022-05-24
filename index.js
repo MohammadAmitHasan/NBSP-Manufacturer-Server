@@ -38,6 +38,18 @@ async function run() {
         const partsCollection = client.db('NBSP-database').collection('parts');
         const userCollection = client.db('NBSP-database').collection('user');
 
+        // Middleware to verify admin
+        const verifyAdmin = async (req, res, next) => {
+            const requester = req.decoded.email;
+            const requesterAccount = await userCollection.findOne({ email: requester })
+            if (requesterAccount.role === 'admin') {
+                next()
+            }
+            else {
+                return res.status(403).send({ message: 'Forbidden Access' });
+            }
+        }
+
         // All Parts get API
         app.get('/parts', async (req, res) => {
             const size = parseInt(req.query.size);
