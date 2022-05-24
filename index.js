@@ -36,6 +36,7 @@ async function run() {
     try {
         await client.connect();
         const partsCollection = client.db('NBSP-database').collection('parts');
+        const userCollection = client.db('NBSP-database').collection('user');
 
         // All Parts get API
         app.get('/parts', async (req, res) => {
@@ -50,6 +51,24 @@ async function run() {
             const query = { _id: ObjectId(id) }
             const result = await partsCollection.findOne(query)
             res.send(result)
+        })
+
+        // Store user data
+        app.put('/user/:email', async (req, res) => {
+            const email = req.params.email;
+            const user = req.body;
+            const filter = { email: email }
+            const options = { upsert: true };
+            const updateDoc = {
+                $set: user,
+            };
+            const result = await userCollection.updateOne(filter, updateDoc, options);
+
+            // Generate a jwt
+            const token = jwt.sign({ email: email }, process.env.SECRET, {
+                expiresIn: '1d',
+            })
+            res.send({ result, token });
         })
 
     }
