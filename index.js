@@ -20,12 +20,21 @@ async function run() {
         await client.connect();
         const partsCollection = client.db('NBSP-database').collection('parts');
 
-        // Parts get API
+        // All Parts get API
         app.get('/parts', async (req, res) => {
             const size = parseInt(req.query.size);
             const parts = await partsCollection.find({}).limit(size).toArray();
             res.send(parts);
         })
+
+        // Single part get API
+        app.get('/parts/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: ObjectId(id) }
+            const result = await partsCollection.findOne(query)
+            res.send(result)
+        })
+
     }
     finally {
 
