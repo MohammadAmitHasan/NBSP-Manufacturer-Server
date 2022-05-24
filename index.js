@@ -37,6 +37,7 @@ async function run() {
         await client.connect();
         const partsCollection = client.db('NBSP-database').collection('parts');
         const userCollection = client.db('NBSP-database').collection('user');
+        const bookingCollection = client.db('doctors_portal').collection('booking');
 
         // Middleware to verify admin
         const verifyAdmin = async (req, res, next) => {
@@ -49,6 +50,14 @@ async function run() {
                 return res.status(403).send({ message: 'Forbidden Access' });
             }
         }
+
+        // Check admin or not
+        app.get('/user/admin/:email', verifyJWT, async (req, res) => {
+            const email = req.params.email;
+            const user = await userCollection.findOne({ email: email })
+            const isAdmin = user.role === 'admin';
+            res.send(isAdmin)
+        })
 
         // All Parts get API
         app.get('/parts', async (req, res) => {
@@ -83,12 +92,18 @@ async function run() {
             res.send({ result, token });
         })
 
-        // Check admin or not
-        app.get('/user/admin/:email', verifyJWT, async (req, res) => {
-            const email = req.params.email;
-            const user = await userCollection.findOne({ email: email })
-            const isAdmin = user.role === 'admin';
-            res.send(isAdmin)
+        app.post('/booking', verifyJWT, async (req, res) => {
+            const booking = req.body;
+            const decodedEmail = req.decoded.email;
+
+            // Check the email with decoded email
+            if (decodedEmail === booking.email) {
+                const result = await bookingCollection.insertOne(booking);
+                res.send({ success: true, result })
+            }
+            else {
+                return res.status(403).send({ message: 'Forbidden Access' });
+            }
         })
 
     }
