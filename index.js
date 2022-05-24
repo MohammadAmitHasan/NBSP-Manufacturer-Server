@@ -20,8 +20,10 @@ async function run() {
         await client.connect();
         const partsCollection = client.db('NBSP-database').collection('parts');
 
+        // Parts get API
         app.get('/parts', async (req, res) => {
-            const parts = await partsCollection.find({}).toArray();
+            const size = parseInt(req.query.size);
+            const parts = await partsCollection.find({}).limit(size).toArray();
             res.send(parts);
         })
     }
