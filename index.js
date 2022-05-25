@@ -5,6 +5,7 @@ const cors = require('cors')
 const jwt = require('jsonwebtoken');
 require('dotenv').config()
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+const stripe = require("stripe")(process.env.STRIPE_SECRET_APIKEY);
 
 
 // Middleware
@@ -37,7 +38,8 @@ async function run() {
         await client.connect();
         const partsCollection = client.db('NBSP-database').collection('parts');
         const userCollection = client.db('NBSP-database').collection('user');
-        const bookingCollection = client.db('doctors_portal').collection('booking');
+        const bookingCollection = client.db('NBSP-database').collection('booking');
+        const paymentCollection = client.db('NBSP-database').collection('payments');
 
         // Middleware to verify admin
         const verifyAdmin = async (req, res, next) => {
@@ -57,6 +59,38 @@ async function run() {
             const user = await userCollection.findOne({ email: email })
             const isAdmin = user.role === 'admin';
             res.send(isAdmin)
+        })
+
+        // Stripe
+        app.post('/create-payment-intent', verifyJWT, async (req, res) => {
+            const { totalPrice } = req.body;
+            // Convert in paisa
+            const amount = totalPrice * 100;
+            // Create a PaymentIntent with the order amount and currency
+            const paymentIntent = await stripe.paymentIntents.create({
+                amount,
+                currency: "usd",
+                payment_method_types: [
+                    "card"
+                ],
+            });
+            res.send({ clientSecret: paymentIntent.client_secret, })
+        })
+
+        app.patch('/booking/:id', verifyJWT, async (req, res) => {
+            const id = req.params.id;
+            const payment = req.body;
+            const filter = { _id: ObjectId(id) };
+            const updatedDoc = {
+                $set: {
+                    paid: true,
+                    transactionId: payment.transactionId
+                }
+            }
+
+            const result = await paymentCollection.insertOne(payment);
+            const updatedBooking = await bookingCollection.updateOne(filter, updatedDoc);
+            res.send(updatedBooking);
         })
 
         // All Parts get API
@@ -94,16 +128,46 @@ async function run() {
 
         app.post('/booking', verifyJWT, async (req, res) => {
             const booking = req.body;
+            const email = booking.email;
             const decodedEmail = req.decoded.email;
 
             // Check the email with decoded email
-            if (decodedEmail === booking.email) {
+            if (decodedEmail === email) {
+                const productId = booking.productId;
+                const product = await partsCollection.findOne({ _id: ObjectId(productId) })
+                const totalPrice = product.price * parseInt(booking.quantity);
+
+                booking.totalPrice = totalPrice;
                 const result = await bookingCollection.insertOne(booking);
                 res.send({ success: true, result })
             }
             else {
                 return res.status(403).send({ message: 'Forbidden Access' });
             }
+        })
+
+        app.get('/myOrders', verifyJWT, async (req, res) => {
+            const client = req.query.client;
+            const decodedEmail = req.decoded.email;
+
+            // Check the email with decoded email
+            if (decodedEmail === client) {
+                const query = { email: client };
+                const bookings = await bookingCollection.find(query).sort({ '_id': -1 }).toArray();
+                return res.send(bookings);
+            }
+            else {
+                return res.status(403).send({ message: 'Forbidden Access' });
+            }
+        })
+
+        // payment required API
+        // Load Specific booking data API
+        app.get('/booking/:id', async (req, res) => {
+            const booking = req.params.id;
+            const query = { _id: ObjectId(booking) }
+            const result = await bookingCollection.findOne(query);
+            res.send(result)
         })
 
     }
