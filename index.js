@@ -84,6 +84,7 @@ async function run() {
             const updatedDoc = {
                 $set: {
                     paid: true,
+                    status: 'Pending Delivery',
                     transactionId: payment.transactionId
                 }
             }
@@ -91,6 +92,22 @@ async function run() {
             const result = await paymentCollection.insertOne(payment);
             const updatedBooking = await bookingCollection.updateOne(filter, updatedDoc);
             res.send(updatedBooking);
+        })
+
+        app.delete('/booking/:id', verifyJWT, async (req, res) => {
+            const email = req.query.client;
+            const productId = req.params.id;
+            const decodedEmail = req.decoded.email;
+            if (decodedEmail === email) {
+                const product = await bookingCollection.findOne({ _id: ObjectId(productId) })
+                if (!product.paid) {
+                    const result = await bookingCollection.deleteOne({ _id: ObjectId(productId) })
+                    res.send(result)
+                }
+            }
+            else {
+                return res.status(403).send({ message: 'Forbidden Access' });
+            }
         })
 
         // All Parts get API
@@ -138,6 +155,7 @@ async function run() {
                 const totalPrice = product.price * parseInt(booking.quantity);
 
                 booking.totalPrice = totalPrice;
+                booking.status = 'Payment Pending';
                 const result = await bookingCollection.insertOne(booking);
                 res.send({ success: true, result })
             }
