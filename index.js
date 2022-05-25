@@ -40,6 +40,7 @@ async function run() {
         const userCollection = client.db('NBSP-database').collection('user');
         const bookingCollection = client.db('NBSP-database').collection('booking');
         const paymentCollection = client.db('NBSP-database').collection('payments');
+        const reviewCollection = client.db('NBSP-database').collection('review');
 
         // Middleware to verify admin
         const verifyAdmin = async (req, res, next) => {
@@ -186,6 +187,18 @@ async function run() {
             const query = { _id: ObjectId(booking) }
             const result = await bookingCollection.findOne(query);
             res.send(result)
+        })
+
+        // Review APIs
+        app.get('/reviews', async (req, res) => {
+            const reviews = await reviewCollection.find({}).sort({ '_id': -1 }).toArray();
+            res.send(reviews);
+        })
+
+        app.post('/reviews', verifyJWT, async (req, res) => {
+            const review = req.body;
+            const result = await reviewCollection.insertOne(review);
+            res.send(result);
         })
 
     }
