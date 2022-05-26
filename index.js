@@ -62,6 +62,25 @@ async function run() {
             res.send(isAdmin)
         })
 
+        // Get all users
+        app.get('/allUsers', verifyJWT, verifyAdmin, async (req, res) => {
+            const query = {}
+            const result = userCollection.find(query);
+            const users = await result.toArray();
+            res.send(users);
+        })
+
+        // Make admin role
+        app.put('/user/admin/:email', verifyJWT, verifyAdmin, async (req, res) => {
+            const email = req.params.email;
+            const filter = { email: email }
+            const updateDoc = {
+                $set: { role: 'admin' },
+            };
+            const result = await userCollection.updateOne(filter, updateDoc);
+            res.send(result);
+        })
+
 
         // Stripe
         app.post('/create-payment-intent', verifyJWT, async (req, res) => {
