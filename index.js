@@ -65,8 +65,7 @@ async function run() {
         // Get all users
         app.get('/allUsers', verifyJWT, verifyAdmin, async (req, res) => {
             const query = {}
-            const result = userCollection.find(query);
-            const users = await result.toArray();
+            const users = await userCollection.find(query).sort({ '_id': -1 }).toArray();
             res.send(users);
         })
 
@@ -79,6 +78,19 @@ async function run() {
             };
             const result = await userCollection.updateOne(filter, updateDoc);
             res.send(result);
+        })
+
+        // Shipment API
+        app.patch('/shipped/:id', verifyJWT, verifyAdmin, async (req, res) => {
+            const id = req.params.id;
+            const filter = { _id: ObjectId(id) };
+            const updatedDoc = {
+                $set: {
+                    status: 'Shipped',
+                }
+            }
+            const updatedBooking = await bookingCollection.updateOne(filter, updatedDoc);
+            res.send(updatedBooking);
         })
 
 
@@ -98,6 +110,7 @@ async function run() {
             res.send({ clientSecret: paymentIntent.client_secret, })
         })
 
+        // Payment update
         app.patch('/booking/:id', verifyJWT, async (req, res) => {
             const id = req.params.id;
             const payment = req.body;
@@ -109,12 +122,12 @@ async function run() {
                     transactionId: payment.transactionId
                 }
             }
-
             const result = await paymentCollection.insertOne(payment);
             const updatedBooking = await bookingCollection.updateOne(filter, updatedDoc);
             res.send(updatedBooking);
         })
 
+        // Delete booking 
         app.delete('/booking/:id', verifyJWT, async (req, res) => {
             const email = req.query.client;
             const productId = req.params.id;
@@ -131,11 +144,26 @@ async function run() {
             }
         })
 
+        app.delete('/part/:id', verifyJWT, verifyAdmin, async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: ObjectId(id) }
+            const result = await partsCollection.deleteOne(query);
+            res.send(result);
+        })
+
+
         // All Parts get API
         app.get('/parts', async (req, res) => {
             const size = parseInt(req.query.size);
-            const parts = await partsCollection.find({}).limit(size).toArray();
+            const parts = await partsCollection.find({}).limit(size).sort({ '_id': -1 }).toArray();
             res.send(parts);
+        })
+
+        //Add part API
+        app.post('/parts', verifyJWT, verifyAdmin, async (req, res) => {
+            const part = req.body;
+            const result = await partsCollection.insertOne(part);
+            res.send(result);
         })
 
         // Single part get API
@@ -218,6 +246,12 @@ async function run() {
             else {
                 return res.status(403).send({ message: 'Forbidden Access' });
             }
+        })
+
+        // Get all orders API
+        app.get('/allOrders', verifyJWT, verifyAdmin, async (req, res) => {
+            const bookings = await bookingCollection.find({}).sort({ '_id': -1 }).toArray();
+            return res.send(bookings);
         })
 
         // payment required API
