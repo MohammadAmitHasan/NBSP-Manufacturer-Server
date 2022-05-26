@@ -62,6 +62,7 @@ async function run() {
             res.send(isAdmin)
         })
 
+
         // Stripe
         app.post('/create-payment-intent', verifyJWT, async (req, res) => {
             const { totalPrice } = req.body;
@@ -142,6 +143,26 @@ async function run() {
                 expiresIn: '1d',
             })
             res.send({ result, token });
+        })
+
+        // Get single user data API
+        app.get('/user/:id', verifyJWT, async (req, res) => {
+            const email = req.params.id;
+            const user = await userCollection.findOne({ email: email })
+            res.send(user);
+        })
+
+        // Update user data
+        app.put('/user/:id', verifyJWT, async (req, res) => {
+            const email = req.params.id;
+            const user = req.body;
+            const filter = { email: email }
+            const options = { upsert: true };
+            const updateDoc = {
+                $set: user,
+            };
+            const result = await userCollection.updateOne(filter, updateDoc, options);
+            res.send(result)
         })
 
         app.post('/booking', verifyJWT, async (req, res) => {
